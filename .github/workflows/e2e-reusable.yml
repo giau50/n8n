@@ -65,11 +65,9 @@ jobs:
         run: echo "value=sha-$GITHUB_SHA-time-$(date +"%s")" >> $GITHUB_OUTPUT
 
   install:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     needs: ['prepare']
-    container:
-      image: cypress/${{ inputs.run-env }}
-      options: --user 1001
+
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -99,19 +97,17 @@ jobs:
         run: pnpm cypress:install
 
       - name: Cache build artifacts
-        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662
         with:
           path: |
+            /home/runner/.cache/Cypress
             /github/home/.cache
             /github/home/.pnpm-store
             ./packages/**/dist
-          key: ${{ github.sha }}-e2e
+          key: ${{ needs.prepare.outputs.uuid }}-e2e
 
   testing:
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/${{ inputs.run-env }}
-      options: --user 1001
+    runs-on: blacksmith-2vcpu-ubuntu-2204
     needs: ['prepare', 'install']
     strategy:
       fail-fast: false
@@ -132,14 +128,18 @@ jobs:
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
 
+      - name: Setup build cache
+        uses: useblacksmith/caching-for-turbo@v1
+
       - name: Restore cached pnpm modules
-        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4.2.0
         with:
           path: |
+            /home/runner/.cache/Cypress
             /github/home/.cache
             /github/home/.pnpm-store
             ./packages/**/dist
-          key: ${{ github.sha }}-e2e
+          key: ${{ needs.prepare.outputs.uuid }}-e2e
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
